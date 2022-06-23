@@ -576,60 +576,16 @@ double Object::FreeSpaceDistancePoint(double x, double y, double* latDist, doubl
 	}
 
 	// OK, they are not overlapping. Now find the distance.
-	// Strategy: Brute force check point against all sides
-	// of the bounding box
 
 	Object* obj = this;
 
-	double vertices[4][2];
-
-	// Specify bounding box corner vertices, starting at first quadrant
-	double vtmp[4][2] =
-	{
-		{ obj->boundingbox_.center_.x_ + obj->boundingbox_.dimensions_.length_ / 2.0, obj->boundingbox_.center_.y_ + obj->boundingbox_.dimensions_.width_ / 2.0 },
-		{ obj->boundingbox_.center_.x_ - obj->boundingbox_.dimensions_.length_ / 2.0, obj->boundingbox_.center_.y_ + obj->boundingbox_.dimensions_.width_ / 2.0 },
-		{ obj->boundingbox_.center_.x_ - obj->boundingbox_.dimensions_.length_ / 2.0, obj->boundingbox_.center_.y_ - obj->boundingbox_.dimensions_.width_ / 2.0 },
-		{ obj->boundingbox_.center_.x_ + obj->boundingbox_.dimensions_.length_ / 2.0, obj->boundingbox_.center_.y_ - obj->boundingbox_.dimensions_.width_ / 2.0 }
-	};
-
-	for (int j = 0; j < 4; j++)  // for all vertices
-	{
-		// Align points to object heading and position
-		RotateVec2D(vtmp[j][0], vtmp[j][1], obj->pos_.GetH(), vertices[j][0], vertices[j][1]);
-		vertices[j][0] += obj->pos_.GetX();
-		vertices[j][1] += obj->pos_.GetY();
-	}
-
-
-	double point[2] = { x, y };
-
-	for (int k = 0; k < 4; k++)  // for all sides/edges of the bounding box
-	{
-		double edge[2][2];
-		edge[0][0] = vertices[k][0];
-		edge[0][1] = vertices[k][1];
-		edge[1][0] = vertices[(k + 1) % 4][0];
-		edge[1][1] = vertices[(k + 1) % 4][1];
-
-		double xProj = 0;
-		double yProj = 0;
-		double tmpDist = DistanceFromPointToLine2D(point[0], point[1], edge[0][0], edge[0][1], edge[1][0], edge[1][1],
-			&xProj, &yProj);
-
-		if (tmpDist < minDist)
-		{
-			minDist = tmpDist;
-
-			if (latDist && longDist)
-			{
-				// Calculate x, y components of the distance in vehicle reference system
-				// y points left in vehicle ref system, x forward
-				RotateVec2D(point[0] - xProj, point[1] - yProj, -this->pos_.GetH(), *longDist, *latDist);
-			}
-		}
-	}
-
-	return minDist;
+	double xNoFS = x - obj->pos_.GetX();
+	double yNoFS = y - obj->pos_.GetY();
+	double dLong = fabs(xNoFS * cos(obj->pos_.GetH()) + yNoFS * sin(obj->pos_.GetH())) - obj->boundingbox_.dimensions_.length_ / 2.0;
+	double dLat = fabs(xNoFS * sin(obj->pos_.GetH()) - yNoFS * cos(obj->pos_.GetH())) - obj->boundingbox_.dimensions_.width_ / 2.0;
+	*longDist = dLong <= 0.0 ? 0.0 : dLong;
+	*latDist = dLat <= 0.0 ? 0.0 : dLat;
+	return sqrt(*longDist * *longDist + *latDist * *latDist);
 }
 
 int Object::FreeSpaceDistancePointRoadLane(double x, double y, double* latDist, double* longDist, CoordinateSystem cs)
